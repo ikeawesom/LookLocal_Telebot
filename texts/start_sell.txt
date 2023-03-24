@@ -1,0 +1,6 @@
+Alright, let's see what you got!;
+What are we going to call it? Please choose a name for this listing.;
+Great choice. Now let's add a description for your listing.;
+Nice! Let your customer's know what they are in for! Send me a picture of your product.;
+Excellent. Finally, how much are you selling this item for (SGD)?;
+Congrats! Your item is now listed on LookLocal stores by;
