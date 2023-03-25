@@ -24,6 +24,15 @@ def resetDB():
 	db["products"] = {}
 
 
+def reset_sell():
+	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool
+	sellName_bool = False
+	sellDesc_bool = False
+	sellCat_bool = False
+	sellPic_bool = False
+	sellPrice_bool = False
+
+
 # ==================== ESSENTIAL VARIABLES ==================== #
 
 API_KEY = os.environ["API_KEY"]
@@ -53,11 +62,63 @@ sellName_bool = False
 sellName = get_Texts("start_sell")[1]
 sellDesc_bool = False
 sellDesc = get_Texts("start_sell")[2]
+sellCat_bool = False
+sellCat = get_Texts("start_sell")[3]
 sellPic_bool = False
-sellPic = get_Texts("start_sell")[3]
+sellPic = get_Texts("start_sell")[4]
 sellPrice_bool = False
-sellPrice = get_Texts("start_sell")[4]
-sellEnd = get_Texts("start_sell")[5]
+sellPrice = get_Texts("start_sell")[5]
+sellEnd = get_Texts("start_sell")[6]
+
+# ==================== INLINE MARKUPS ==================== #
+
+intro_buttons = [
+ [InlineKeyboardButton("Explore Products 🔍", callback_data="START_explore")],
+ [
+  InlineKeyboardButton("Start Selling Products 💸 ", callback_data="START_sell")
+ ],
+ [InlineKeyboardButton("Visit our Website 🌐 ", url="https://www.google.com")]
+]
+
+selling_buttons = [[
+ InlineKeyboardButton("Male Tops 👕", callback_data="SELL_maleTops"),
+ InlineKeyboardButton("Male Bottoms 👖", callback_data="SELL_maleBots")
+],
+                   [
+                    InlineKeyboardButton("Female Tops 👚",
+                                         callback_data="SELL_femaleTops"),
+                    InlineKeyboardButton("Female Bottoms 🩳",
+                                         callback_data="SELL_femaleBots")
+                   ],
+                   [
+                    InlineKeyboardButton("Dresses 👗",
+                                         callback_data="SELL_dresses")
+                   ],
+                   [
+                    InlineKeyboardButton("Accessories 🧢",
+                                         callback_data="SELL_access"),
+                    InlineKeyboardButton("Hoodies/Jackets 🧥",
+                                         callback_data="SELL_hoodies")
+                   ]]
+
+explore_buttons = [
+ [
+  InlineKeyboardButton("Your favourites ⭐ ", callback_data="EXPLORE_favourite")
+ ], [InlineKeyboardButton("HOT PRODUCTS 🔥", callback_data="EXPLORE_hot")],
+ [InlineKeyboardButton("See All Products 🛒", callback_data="EXPLORE_all")],
+ [
+  InlineKeyboardButton("Male Tops 👕", callback_data="EXPLORE_maleTops"),
+  InlineKeyboardButton("Male Bottoms 👖", callback_data="EXPLORE_maleBots")
+ ],
+ [
+  InlineKeyboardButton("Female Tops 👚", callback_data="EXPLORE_femaleTops"),
+  InlineKeyboardButton("Female Bottoms 🩳", callback_data="EXPLORE_femaleBots")
+ ], [InlineKeyboardButton("Dresses 👗", callback_data="EXPLORE_dresses")],
+ [
+  InlineKeyboardButton("Accessories 🧢", callback_data="EXPLORE_access"),
+  InlineKeyboardButton("Hoodies/Jackets 🧥", callback_data="EXPLORE_hoodies")
+ ], [InlineKeyboardButton("<< Back", callback_data="BACK_start")]
+]
 
 
 # ==================== HANDLERS ==================== #
@@ -69,17 +130,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	cur_user = update.message.chat.username
 	print(f"{cur_time}: {cur_user} ({cur_id}) started the bot")
 
-	# Button set up
-	buttons = [
-	 [InlineKeyboardButton("Explore Products 🔍", callback_data="START_explore")],
-	 [
-	  InlineKeyboardButton("Start Selling Products 💸 ",
-	                       callback_data="START_sell")
-	 ],
-	 [InlineKeyboardButton("Visit our Website 🌐 ", url="https://www.google.com")]
-	]
+	reply_markup = InlineKeyboardMarkup(intro_buttons)
 
-	reply_markup = InlineKeyboardMarkup(buttons)
+	# Resets selling procedure
+	reset_sell()
 
 	# Checks if new user
 	global intro_txt
@@ -105,12 +159,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		                               reply_markup=reply_markup)
 
 
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool
+
+	response = "Listing procedure has not begun. Invalid use of stop command.\n\n"
+	if sellName_bool or sellDesc_bool or sellCat_bool or sellPic_bool or sellPrice_bool:
+		reset_sell()
+		response = "Listing procedure has stopped.\n\n"
+	reply_markup = InlineKeyboardMarkup(intro_buttons)
+	await context.bot.send_message(
+	 chat_id=update.effective_chat.id,
+	 text=response+"What else can I do for you?",
+	 reply_markup=reply_markup)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	text = update.message.text
 	photo = update.message.photo
 	cur_user = update.message.chat.username
 
-	global temp_product, sellName_bool, sellDesc_bool, sellPic_bool, sellPrice_bool, sellEnd_bool
+	global temp_product, sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, sellEnd_bool
 	if sellName_bool:
 		if text in db["members"][str(cur_user)]["products"]:
 			await update.message.reply_text(
@@ -125,8 +193,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		item_desc = text
 		temp_product["desc"] = item_desc
 		sellDesc_bool = False
-		sellPic_bool = True
-		await update.message.reply_text(sellPic)
+		sellCat_bool = True
+
+		# Set up reply markup
+		reply_mark = InlineKeyboardMarkup(selling_buttons)
+
+		await update.message.reply_text(sellCat, reply_markup=reply_mark)
 	elif sellPic_bool:
 		if not (photo):
 			await update.message.reply_text("Please choose a proper photo.")
@@ -165,6 +237,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		details_products = {
 		 'owner': cur_user,
 		 'desc': temp_product["desc"],
+		 'category': temp_product["category"],
 		 'price': temp_product["price"],
 		 'filepath': os.path.join(user_path, f"{item_name}.jpg")
 		}
@@ -177,6 +250,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
 	query = update.callback_query
 	await query.answer()
 
@@ -189,28 +263,7 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		if option == "explore":  # if user wants to explore products
 
 			# Set up inlinekeyboardbuttons
-			buttons = [
-			 [
-			  InlineKeyboardButton("Your favourites ⭐ ",
-			                       callback_data="EXPLORE_favourite")
-			 ], [InlineKeyboardButton("HOT PRODUCTS 🔥", callback_data="EXPLORE_hot")],
-			 [InlineKeyboardButton("See All Products 🛒", callback_data="EXPLORE_all")],
-			 [
-			  InlineKeyboardButton("Male Tops 👕", callback_data="EXPLORE_maleTops"),
-			  InlineKeyboardButton("Male Bottoms 👖", callback_data="EXPLORE_maleBots")
-			 ],
-			 [
-			  InlineKeyboardButton("Female Tops 👚", callback_data="EXPLORE_femaleTops"),
-			  InlineKeyboardButton("Female Bottoms 🩳",
-			                       callback_data="EXPLORE_femaleBots")
-			 ], [InlineKeyboardButton("Dresses 👗", callback_data="EXPLORE_dresses")],
-			 [
-			  InlineKeyboardButton("Accessories 🧢", callback_data="EXPLORE_access"),
-			  InlineKeyboardButton("Hoodies/Jackets 🧥", callback_data="EXPLORE_hoodies")
-			 ], [InlineKeyboardButton("<< Back", callback_data="BACK_start")]
-			]
-
-			reply_markup = InlineKeyboardMarkup(buttons)
+			reply_markup = InlineKeyboardMarkup(explore_buttons)
 
 			# Edits text and shows new keyboard markup
 			await query.edit_message_text(text=exploreStart_txt)
@@ -227,24 +280,41 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		else:
 			await context.bot.send_message(chat_id=update.effective_chat.id,
 			                               text=error_msg)
+	# To add category for product listing
+	elif prefix == "SELL":
+		global sellPic_bool, temp_product, sellCat_bool
+		temp_product["category"] = option
+		sellCat_bool = False
+		sellPic_bool = True
+		await context.bot.send_message(chat_id=update.effective_chat.id,
+		                               text=sellPic)
+
+	# Back option functionalities
+	elif prefix == "BACK":
+		if option == "start":
+			# Edits text and shows new keyboard markup
+			await query.edit_message_text(text=intro_txt)
+			reply_markup = InlineKeyboardMarkup(intro_buttons)
+			await query.edit_message_reply_markup(reply_markup)
 
 
 # ==================== STARTING BOT ==================== #
 
 if __name__ == '__main__':
-	keep_alive()
+
 	application = ApplicationBuilder().token(API_KEY).build()
 
 	# ASSIGNING HANDLERS
 	start_handler = CommandHandler('start', start)
+	stop_handler = CommandHandler('stop', stop)
 	message_handler = MessageHandler(filters.ALL, handle_message)
 	query_handler = CallbackQueryHandler(queryHandler)
 
 	# ADDING HANDLERS TO APPLICATION
 	application.add_handler(start_handler)
+	application.add_handler(stop_handler)
 	application.add_handler(message_handler)
 	application.add_handler(query_handler)
 
+	keep_alive()
 	application.run_polling()
-	
-	application.idle()
