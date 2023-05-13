@@ -46,9 +46,26 @@ error_msg = "An error has occured. Please use /start to reset me!"
 member_lst = db["members"]
 product_lst = db["products"]
 print("Member Count:", len(member_lst))
-print("Current Members:", member_lst)
+for member in member_lst:
+	print("Name:",member)
+	member_prods = []
+	for prod in member_lst[member]["products"]:
+		member_prods.append(prod)
+	print("Products:",','.join(member_prods))
+	print("Favourites:",member_lst[member]["favourites"])
+	print("Bought:",member_lst[member]["bought"])
+	print("Account created on:",member_lst[member]["creation"])
+	print("\n")
+print("="*100)
 print("Product Count", len(product_lst))
-print("Current Products", product_lst)
+for item in product_lst:
+	print("Name:",item)
+	print("Desc:",product_lst[item]['desc'])
+	print("Price:",product_lst[item]["price"])
+	print("Filepath:",product_lst[item]["filepath"])
+	print("Owner:",product_lst[item]["owner"])
+	print("\n"+"-"*50)
+# print("Current Products", product_lst)
 
 # Get texts
 intro_txt = get_Texts("intro")[0]
@@ -57,7 +74,6 @@ exploreStart_txt = get_Texts("start_explore")[0]
 # Selling products
 temp_product = {}
 sellStart_txt = get_Texts("start_sell")[0]
-
 sellName_bool = False
 sellName = get_Texts("start_sell")[1]
 sellDesc_bool = False
@@ -69,6 +85,9 @@ sellPic = get_Texts("start_sell")[4]
 sellPrice_bool = False
 sellPrice = get_Texts("start_sell")[5]
 sellEnd = get_Texts("start_sell")[6]
+
+# Exploring products
+searchSeller = False
 
 # ==================== INLINE MARKUPS ==================== #
 
@@ -117,7 +136,9 @@ explore_buttons = [
  [
   InlineKeyboardButton("Accessories 🧢", callback_data="EXPLORE_access"),
   InlineKeyboardButton("Hoodies/Jackets 🧥", callback_data="EXPLORE_hoodies")
- ], [InlineKeyboardButton("<< Back", callback_data="BACK_start")]
+ ],
+	[InlineKeyboardButton("Search by Seller 🔍", callback_data="EXPLORE_searchSeller")],
+	[InlineKeyboardButton("<< Back", callback_data="BACK_start")]
 ]
 
 
@@ -162,23 +183,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool
 
-	response = "Listing procedure has not begun. Invalid use of stop command.\n\n"
+	response = "Procedure has not begun. Invalid use of stop command.\n\n"
 	if sellName_bool or sellDesc_bool or sellCat_bool or sellPic_bool or sellPrice_bool:
 		reset_sell()
-		response = "Listing procedure has stopped.\n\n"
+		response = "Procedure has stopped.\n\n"
 	reply_markup = InlineKeyboardMarkup(intro_buttons)
-	await context.bot.send_message(
-	 chat_id=update.effective_chat.id,
-	 text=response+"What else can I do for you?",
-	 reply_markup=reply_markup)
+	await context.bot.send_message(chat_id=update.effective_chat.id,
+	                               text=response + "What else can I do for you?",
+	                               reply_markup=reply_markup)
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	text = update.message.text
-	photo = update.message.photo
 	cur_user = update.message.chat.username
 
-	global temp_product, sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, sellEnd_bool
+	global temp_product, sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, sellEnd_bool, searchSeller
+
+	# EXPLORE PRODUCTS SEARCHING
+	if searchSeller:
+		if text in db["members"]:
+			for product in db["members"][text]["products"]:
+				print(product)
+		else:
+			print("no item")
+		searchSeller = False
+		return
+	
+	# LISTING STATEMENTS
 	if sellName_bool:
 		if text in db["members"][str(cur_user)]["products"]:
 			await update.message.reply_text(
@@ -200,10 +231,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 		await update.message.reply_text(sellCat, reply_markup=reply_mark)
 	elif sellPic_bool:
+		photo = update.message.photo
 		if not (photo):
 			await update.message.reply_text("Please choose a proper photo.")
 			return
-		file_id = photo[0].file_id
+		file_id = photo[-2].file_id
 		photo_file = await context.bot.get_file(file_id)
 		temp_product["photo"] = photo_file
 		sellPic_bool = False
@@ -216,13 +248,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			return
 		temp_product["price"] = item_price
 		sellPrice_bool = False
-		await update.message.reply_text(sellEnd + f" @{cur_user}!")
+		reply_markup = InlineKeyboardMarkup(intro_buttons)
+		await update.message.reply_text(sellEnd + f" @{cur_user}!\n\nIs there anything else I can do for you?",reply_markup=reply_markup)
 
 		# UPDATE REPLIT DB
 		item_name = temp_product["name"]
 
 		# Saves photo to replit
-		user_path = os.path.join(os.getcwd(), f"products//{cur_user}")
+		user_path = os.path.join(os.getcwd(), f"products/{cur_user}")
 
 		if not (os.path.isdir(user_path)):
 			os.mkdir(os.path.join(user_path))
@@ -296,6 +329,63 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			await query.edit_message_text(text=intro_txt)
 			reply_markup = InlineKeyboardMarkup(intro_buttons)
 			await query.edit_message_reply_markup(reply_markup)
+
+	# Exploring products functionality
+	elif prefix == "EXPLORE":
+		product_lst = db["products"]
+
+		# User chooses to view ALL products
+		# TODO: Add page numbers
+		if option == "all":
+			for product in product_lst:
+
+				name = product
+				desc = product_lst[product]["desc"]
+				cat = product_lst[product]["category"]
+				filepath = product_lst[product]["filepath"]
+				price = product_lst[product]["price"]
+				owner = product_lst[product]["owner"]
+
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+				await context.bot.send_photo(chat_id=update.effective_chat.id,
+				                             photo=filepath,
+				                             caption=caption,
+				                             parse_mode="HTML")
+
+		# User chooses to search products by seller
+		elif option == "searchSeller":
+			global searchSeller
+
+			await context.bot.send_message(chat_id=update.effective_chat.id,text="Who is the seller you are looking for? Tell me their Telegram username!")
+			searchSeller = True
+		else:
+			count = 0
+			for product in product_lst:
+
+				cat = product_lst[product]["category"]
+
+				if option != cat:
+					continue
+
+				count += 1
+				name = product
+				desc = product_lst[product]["desc"]
+				filepath = product_lst[product]["filepath"]
+				price = product_lst[product]["price"]
+				owner = product_lst[product]["owner"]
+
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+				await context.bot.send_photo(chat_id=update.effective_chat.id,
+				                             photo=filepath,
+				                             caption=caption,
+				                             parse_mode="HTML")
+
+			if count == 0:
+				await context.bot.send_message(
+				 chat_id=update.effective_chat.id,
+				 text=
+				 "Oops, there are currently no products in this category! Try something else?"
+				)
 
 
 # ==================== STARTING BOT ==================== #
