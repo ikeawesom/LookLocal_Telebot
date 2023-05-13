@@ -190,8 +190,7 @@ explore_buttons = [
 	[InlineKeyboardButton("<< Back", callback_data="BACK_start")]
 ]
 
-
-
+print()
 # ==================== HANDLERS ==================== #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
