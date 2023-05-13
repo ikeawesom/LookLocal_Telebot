@@ -35,7 +35,10 @@ def reset_sell():
 
 # ==================== ESSENTIAL VARIABLES ==================== #
 
-API_KEY = os.environ["API_KEY"]
+PROD_KEY = os.environ["API_KEY_PROD"]
+PUB_KEY = os.environ["API_KEY"]
+API_KEY = PROD_KEY # change when necessary
+
 BOT_NAME = "Tristan"
 error_msg = "An error has occured. Please use /start to reset me!"
 
@@ -61,6 +64,9 @@ print("Product Count", len(product_lst))
 for item in product_lst:
 	print("Name:",item)
 	print("Desc:",product_lst[item]['desc'])
+	print("Category:",product_lst[item]['category'])
+	print("Colour:",product_lst[item]["colour"])
+	print("Size:",product_lst[item]["size"])
 	print("Price:",product_lst[item]["price"])
 	print("Filepath:",product_lst[item]["filepath"])
 	print("Owner:",product_lst[item]["owner"])
@@ -81,14 +87,23 @@ sellDesc = get_Texts("start_sell")[2]
 sellCat_bool = False
 sellCat = get_Texts("start_sell")[3]
 sellPic_bool = False
-sellPic = get_Texts("start_sell")[4]
+sellColour = get_Texts("start_sell")[4]
+sellColour_bool = False
+sellSize = get_Texts("start_sell")[5]
+sellSize_bool = False
+sellPic = get_Texts("start_sell")[6]
 sellPrice_bool = False
-sellPrice = get_Texts("start_sell")[5]
-sellEnd = get_Texts("start_sell")[6]
+sellPrice = get_Texts("start_sell")[7]
+sellEnd = get_Texts("start_sell")[8]
 
 # Exploring products
 searchSeller = False
+exploring = False
+current_cat = None
 
+# Filters
+filtersSet = {"colours":[],"sizes":[],"ranges":[]}
+writingPrices = False
 # ==================== INLINE MARKUPS ==================== #
 
 intro_buttons = [
@@ -97,6 +112,20 @@ intro_buttons = [
   InlineKeyboardButton("Start Selling Products 💸 ", callback_data="START_sell")
  ],
  [InlineKeyboardButton("Visit our Website 🌐 ", url="https://www.google.com")]
+]
+
+selling_colour_buttons = [
+	[InlineKeyboardButton("Red",callback_data="SELL_COLOUR_red"),InlineKeyboardButton("Orange",callback_data="SELL_COLOUR_orange")],
+						  [InlineKeyboardButton("Yellow",callback_data="SELL_COLOUR_yellow"),InlineKeyboardButton("Green",callback_data="SELL_COLOUR_green")],
+	[InlineKeyboardButton("Blue",callback_data="SELL_COLOUR_blue"),InlineKeyboardButton("Purple",callback_data="SELL_COLOUR_purple")],
+						  [InlineKeyboardButton("Others",callback_data="SELL_COLOUR_others")]]
+
+selling_sizes_buttons = [
+	[InlineKeyboardButton("XS - below 6 years",callback_data="SELL_SIZE_XS")],
+	[InlineKeyboardButton("S - 6 to 10 years",callback_data="SELL_SIZE_S")],
+	[InlineKeyboardButton("M - 11 to 16 years",callback_data="SELL_SIZE_M")],
+	[InlineKeyboardButton("L - 17 to 21 years",callback_data="SELL_SIZE_L")],
+	[InlineKeyboardButton("XL - above 21 years",callback_data="SELL_SIZE_XL")]
 ]
 
 selling_buttons = [[
@@ -120,10 +149,30 @@ selling_buttons = [[
                                          callback_data="SELL_hoodies")
                    ]]
 
+explore_colour_buttons = [
+	[InlineKeyboardButton("Red",callback_data="EXPLORE_FILTERS_Colours_red"),InlineKeyboardButton("Orange",callback_data="EXPLORE_FILTERS_Colours_orange")],
+						  [InlineKeyboardButton("Yellow",callback_data="EXPLORE_FILTERS_Colours_yellow"),InlineKeyboardButton("Green",callback_data="EXPLORE_FILTERS_Colours_green")],
+	[InlineKeyboardButton("Blue",callback_data="EXPLORE_FILTERS_Colours_blue"),InlineKeyboardButton("Purple",callback_data="EXPLORE_FILTERS_Colours_purple")],
+						  [InlineKeyboardButton("Others",callback_data="EXPLORE_FILTERS_Colours_others")]]
+
+explore_sizes_buttons = [
+	[InlineKeyboardButton("XS - below 6 years",callback_data="EXPLORE_FILTERS_Sizes_XS")],
+	[InlineKeyboardButton("S - 6 to 10 years",callback_data="EXPLORE_FILTERS_Sizes_S")],
+	[InlineKeyboardButton("M - 11 to 16 years",callback_data="EXPLORE_FILTERS_Sizes_M")],
+	[InlineKeyboardButton("L - 17 to 21 years",callback_data="EXPLORE_FILTERS_Sizes_L")],
+	[InlineKeyboardButton("XL - above 21 years",callback_data="EXPLORE_FILTERS_Sizes_XL")]
+]
+
+
+filter_buttons = [[InlineKeyboardButton("Colours",callback_data="EXPLORE_FILTERS_Colours"),InlineKeyboardButton("Sizes",callback_data="EXPLORE_FILTERS_Sizes"),InlineKeyboardButton("Price Range",callback_data="EXPLORE_FILTERS_Prices")],
+				  [InlineKeyboardButton("Start Filtering",callback_data="EXPLORE_FILTERS_Finish")]
+]
+
+
 explore_buttons = [
- [
-  InlineKeyboardButton("Your favourites ⭐ ", callback_data="EXPLORE_favourite")
- ], [InlineKeyboardButton("HOT PRODUCTS 🔥", callback_data="EXPLORE_hot")],
+ # [
+ #  InlineKeyboardButton("Your favourites ⭐ ", callback_data="EXPLORE_favourite")
+ # ], [InlineKeyboardButton("HOT PRODUCTS 🔥", callback_data="EXPLORE_hot")],
  [InlineKeyboardButton("See All Products 🛒", callback_data="EXPLORE_all")],
  [
   InlineKeyboardButton("Male Tops 👕", callback_data="EXPLORE_maleTops"),
@@ -140,6 +189,7 @@ explore_buttons = [
 	[InlineKeyboardButton("Search by Seller 🔍", callback_data="EXPLORE_searchSeller")],
 	[InlineKeyboardButton("<< Back", callback_data="BACK_start")]
 ]
+
 
 
 # ==================== HANDLERS ==================== #
@@ -181,11 +231,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool
+	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, writingPrices
 
 	response = "Procedure has not begun. Invalid use of stop command.\n\n"
-	if sellName_bool or sellDesc_bool or sellCat_bool or sellPic_bool or sellPrice_bool:
+	if sellName_bool or sellDesc_bool or sellCat_bool or sellPic_bool or sellPrice_bool or writingPrices:
 		reset_sell()
+		searchSeller = False
+		writingPrices = False
 		response = "Procedure has stopped.\n\n"
 	reply_markup = InlineKeyboardMarkup(intro_buttons)
 	await context.bot.send_message(chat_id=update.effective_chat.id,
@@ -193,11 +245,32 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	                               reply_markup=reply_markup)
 
 
+async def setFilters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	global filtersSet, exploring
+	if not(exploring):
+		await context.bot.send_message(chat_id=update.effective_chat.id,
+		                               text="You are currently not exploring any products. Please use /start to explore products to use this filters command.")
+		return
+		
+	reply_markup = InlineKeyboardMarkup(filter_buttons)
+	colours = str(", ".join(filtersSet["colours"]))
+	sizes = str(", ".join(filtersSet["sizes"]))
+	prices = ", ".join(filtersSet["ranges"])
+	await context.bot.send_message(chat_id=update.effective_chat.id,
+		                               text=f"Current filters:\nColours: {colours}\nSizes: {sizes}\n{prices}\nSelect some filters to choose from.",
+									  reply_markup=reply_markup)
+		
+async def clearFilters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+	global filtersSet
+	filtersSet = {"colours":[],"sizes":[],"ranges":[]}
+	await context.bot.send_message(chat_id=update.effective_chat.id,
+		                               text="Your search filters have now been cleared.")
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	text = update.message.text
 	cur_user = update.message.chat.username
 
-	global temp_product, sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, sellEnd_bool, searchSeller
+	global temp_product, sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, sellEnd_bool, searchSeller, writingPrices, filtersSet
 
 	# EXPLORE PRODUCTS SEARCHING
 	if searchSeller:
@@ -208,7 +281,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			print("no item")
 		searchSeller = False
 		return
-	
+
+	# FILTERS: PRICE RANGE
+	if writingPrices:
+		if "," in text:
+			text = text.split(",")
+			if len(text) == 2 and text[0].isdigit() and text[1].isdigit():
+				filtersSet["ranges"].append(f"{text[0]} - {text[1]}")
+				colours = str(", ".join(filtersSet["colours"]))
+				sizes = str(", ".join(filtersSet["sizes"]))
+				prices = ", ".join(filtersSet["ranges"])
+				reply_markup = InlineKeyboardMarkup(filter_buttons)
+				await context.bot.send_message(chat_id=update.effective_chat.id,
+		                               text=f"Current filters:\nColours: {colours}\nSizes: {sizes}\n{prices}\nSelect some filters to choose from.",
+									  reply_markup=reply_markup)
+			writingPrices = False
+				
+		else:
+			await update.message.reply_text("Invalid input. Filtering process has stopped.")
+			writingPrices = False
+		
 	# LISTING STATEMENTS
 	if sellName_bool:
 		if text in db["members"][str(cur_user)]["products"]:
@@ -254,6 +346,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		# UPDATE REPLIT DB
 		item_name = temp_product["name"]
 
+		print(temp_product)
+		
 		# Saves photo to replit
 		user_path = os.path.join(os.getcwd(), f"products/{cur_user}")
 
@@ -264,13 +358,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		 os.path.join(user_path, f"{item_name}.jpg"))
 
 		# Users DB
-		details = {'desc': temp_product["desc"], 'price': temp_product["price"]}
+		details = {'desc': temp_product["desc"], 'colour': temp_product['colour'],
+			'size': temp_product['size'],'price': temp_product["price"],'filepath': os.path.join(user_path, f"{item_name}.jpg")}
 		db["members"][str(cur_user)]["products"][item_name] = details
 
 		details_products = {
 		 'owner': cur_user,
 		 'desc': temp_product["desc"],
 		 'category': temp_product["category"],
+			'colour': temp_product['colour'],
+			'size': temp_product['size'],
 		 'price': temp_product["price"],
 		 'filepath': os.path.join(user_path, f"{item_name}.jpg")
 		}
@@ -283,12 +380,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-
+	global exploring, current_cat, filtersSet
 	query = update.callback_query
 	await query.answer()
 
-	prefix = query.data.split("_")[0]
-	option = query.data.split("_")[1]
+	mainQuery = query.data.split("_")
+	prefix = mainQuery[0]
+	option = mainQuery[1]
 
 	# FROM START
 
@@ -315,15 +413,34 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			                               text=error_msg)
 	# To add category for product listing
 	elif prefix == "SELL":
-		global sellPic_bool, temp_product, sellCat_bool
+		exploring = False
+		global sellPic_bool, temp_product, sellCat_bool, sellSize_bool, sellColour_bool,sellPrice_bool
+
+		if len(mainQuery) > 2:
+			subSell = mainQuery[1]
+			if subSell == "SIZE":
+				temp_product["size"] = mainQuery[2]
+				sellSize_bool = False
+				sellPic_bool = True
+				await context.bot.send_message(chat_id=update.effective_chat.id, text=sellPic)
+			elif subSell == "COLOUR":
+				temp_product["colour"] = mainQuery[2]
+				sellColour_bool = False
+				sellSize_bool = True
+				reply_markup = InlineKeyboardMarkup(selling_sizes_buttons)
+				await context.bot.send_message(chat_id=update.effective_chat.id,
+									   text=sellSize, reply_markup = reply_markup)
+			return
 		temp_product["category"] = option
 		sellCat_bool = False
-		sellPic_bool = True
+		sellColour_bool = True
+		reply_markup = InlineKeyboardMarkup(selling_colour_buttons)
 		await context.bot.send_message(chat_id=update.effective_chat.id,
-		                               text=sellPic)
+		                               text=sellColour, reply_markup = reply_markup)
 
 	# Back option functionalities
 	elif prefix == "BACK":
+		exploring = False
 		if option == "start":
 			# Edits text and shows new keyboard markup
 			await query.edit_message_text(text=intro_txt)
@@ -332,25 +449,144 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 	# Exploring products functionality
 	elif prefix == "EXPLORE":
+		exploring = True
 		product_lst = db["products"]
 
 		# User chooses to view ALL products
 		# TODO: Add page numbers
-		if option == "all":
-			for product in product_lst:
 
+		async def filters_helper(mainFilter, query, category):
+			if len(mainFilter) > 3:
+				subFilter = mainFilter[3]
+				filtersSet[category].append(subFilter)
+				
+				colours = str(", ".join(filtersSet["colours"]))
+				sizes = str(", ".join(filtersSet["sizes"]))
+				prices = ", ".join(filtersSet["ranges"])
+				reply_markup = InlineKeyboardMarkup(filter_buttons)
+				
+				await query.edit_message_text(text=f"Current filters:\nColours: {colours}\nSizes: {sizes}\n{prices}\nSelect some filters to choose from.")
+				await query.edit_message_reply_markup(reply_markup)
+				return
+				
+		# Filters
+		if option == "FILTERS":
+			mainFilter = query.data.split("_")
+			filterCat = mainFilter[2]
+			
+			if filterCat == "Colours":
+				if len(mainFilter) > 3:
+					await filters_helper(mainFilter, query, "colours")
+					return
+					
+				await query.edit_message_text(text="Choose a colour you would like.")
+				reply_markup = InlineKeyboardMarkup(explore_colour_buttons)
+				await query.edit_message_reply_markup(reply_markup)
+		
+			elif filterCat == "Sizes":
+				if len(mainFilter) > 3:
+					await filters_helper(mainFilter, query, "sizes")
+					return
+					
+				await query.edit_message_text(text="Select a size you want to check out.")
+				reply_markup = InlineKeyboardMarkup(explore_sizes_buttons)
+				await query.edit_message_reply_markup(reply_markup)
+
+			elif filterCat == "Prices":
+				global writingPrices
+
+				await query.edit_message_text(text="Tell me the minimum and maximum price you are looking for, seperated by a comma. <i>(E.g. 20,100)</i>",parse_mode="HTML")
+				writingPrices = True
+
+			elif filterCat == "Finish":
+				print("filters: ", filtersSet)
+				# if current_cat == "all":
+				count = 0
+				
+				for product in product_lst:
+					print(product)
+					print(current_cat)
+					if current_cat != "all":
+						if current_cat != product_lst[product]["category"]:
+							continue
+							
+					name = product
+					desc = product_lst[product]["desc"]
+					filepath = product_lst[product]["filepath"]
+					price = product_lst[product]["price"]
+					owner = product_lst[product]["owner"]
+					size = product_lst[product]["size"]
+					caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+
+					if len(filtersSet['colours']) > 0:
+						for colourFilter in filtersSet['colours']:
+							colour = product_lst[product]["colour"]
+							if colour == colourFilter:
+								count += 1
+								await context.bot.send_photo(chat_id=update.effective_chat.id,
+													 photo=filepath,
+													 caption=caption,
+													 parse_mode="HTML")
+								continue
+
+					if len(filtersSet['sizes']) > 0:
+						for sizeFilter in filtersSet['sizes']:
+							size = product_lst[product]["size"]
+							if size == sizeFilter:
+								count += 1
+								await context.bot.send_photo(chat_id=update.effective_chat.id,
+													 photo=filepath,
+													 caption=caption,
+													 parse_mode="HTML")
+								continue
+
+					if len(filtersSet['ranges']) > 0:
+						for rangeFilter in filtersSet['ranges']:
+							minimum = int(rangeFilter.split("-")[0].strip())
+							maximum = int(rangeFilter.split("-")[1].strip())
+							
+							if int(price) >= minimum and int(price) <= maximum:
+								count += 1
+								await context.bot.send_photo(chat_id=update.effective_chat.id,
+													 photo=filepath,
+													 caption=caption,
+													 parse_mode="HTML")
+								continue
+						
+				if count == 0:
+					await context.bot.send_message(
+					 chat_id=update.effective_chat.id,
+					 text=
+					 "Oops, there are currently no products listed! Apologies for the inconvenience."
+					)
+						
+		
+		# Normal exploring
+		elif option == "all":
+			current_cat = option
+			count = 0
+			for product in product_lst:
+				count += 1
 				name = product
 				desc = product_lst[product]["desc"]
 				cat = product_lst[product]["category"]
 				filepath = product_lst[product]["filepath"]
+				
 				price = product_lst[product]["price"]
 				owner = product_lst[product]["owner"]
-
-				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+				size = product_lst[product]["size"]
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
 				await context.bot.send_photo(chat_id=update.effective_chat.id,
 				                             photo=filepath,
 				                             caption=caption,
 				                             parse_mode="HTML")
+
+			if count == 0:
+				await context.bot.send_message(
+				 chat_id=update.effective_chat.id,
+				 text=
+				 "Oops, there are currently no products listed! Apologies for the inconvenience."
+				)
 
 		# User chooses to search products by seller
 		elif option == "searchSeller":
@@ -360,6 +596,7 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			searchSeller = True
 		else:
 			count = 0
+			current_cat = option
 			for product in product_lst:
 
 				cat = product_lst[product]["category"]
@@ -370,11 +607,12 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				count += 1
 				name = product
 				desc = product_lst[product]["desc"]
+				size = product_lst[product]["size"]
 				filepath = product_lst[product]["filepath"]
 				price = product_lst[product]["price"]
 				owner = product_lst[product]["owner"]
 
-				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
 				await context.bot.send_photo(chat_id=update.effective_chat.id,
 				                             photo=filepath,
 				                             caption=caption,
@@ -397,12 +635,16 @@ if __name__ == '__main__':
 	# ASSIGNING HANDLERS
 	start_handler = CommandHandler('start', start)
 	stop_handler = CommandHandler('stop', stop)
+	filters_handler = CommandHandler('setfilters',setFilters)
+	clear_filters_handler = CommandHandler('clearfilters',clearFilters)
 	message_handler = MessageHandler(filters.ALL, handle_message)
 	query_handler = CallbackQueryHandler(queryHandler)
 
 	# ADDING HANDLERS TO APPLICATION
 	application.add_handler(start_handler)
 	application.add_handler(stop_handler)
+	application.add_handler(filters_handler)
+	application.add_handler(clear_filters_handler)
 	application.add_handler(message_handler)
 	application.add_handler(query_handler)
 

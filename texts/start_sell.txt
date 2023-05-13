@@ -2,6 +2,8 @@ Alright, let's see what you got! Type /stop anytime to go back.;
 What are we going to call it? Please choose a name for this listing.;
 Great choice. Now let's add a description for your listing.;
 Interesting.. What category will this be?;
+Now for some tags. What colour will your product be?;
+Great, now what is the size of this clothing?;
 Nice! Let your customer's know what they are in for! Send me a picture of your product.;
 Excellent. Finally, how much are you selling this item for (SGD)?;
 Congrats! Your item is now listed on LookLocal stores by;
