@@ -230,14 +230,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, writingPrices
+	global sellName_bool, sellDesc_bool, sellCat_bool, sellPic_bool, sellPrice_bool, writingPrices, searchSeller
 
-	response = "Procedure has not begun. Invalid use of stop command.\n\n"
-	if sellName_bool or sellDesc_bool or sellCat_bool or sellPic_bool or sellPrice_bool or writingPrices:
-		reset_sell()
-		searchSeller = False
-		writingPrices = False
-		response = "Procedure has stopped.\n\n"
+	# response = "Procedure has not begun. Invalid use of stop command.\n\n"
+	# if sellName_bool or sellDesc_bool or sellCat_bool or sellPic_bool or sellPrice_bool or writingPrices:
+	reset_sell()
+	searchSeller = False
+	writingPrices = False
+	response = "All procedures stopped.\n\n"
 	reply_markup = InlineKeyboardMarkup(intro_buttons)
 	await context.bot.send_message(chat_id=update.effective_chat.id,
 	                               text=response + "What else can I do for you?",
@@ -274,10 +274,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	# EXPLORE PRODUCTS SEARCHING
 	if searchSeller:
 		if text in db["members"]:
-			for product in db["members"][text]["products"]:
-				print(product)
+			product_lst = db["members"][text]["products"]
+			await update.message.reply_text(f"Found 'em! Here are the product(s) listed by user @{text}.")
+			for product in product_lst:
+				name = product
+				desc = product_lst[product]["desc"]
+				filepath = product_lst[product]["filepath"]
+				price = product_lst[product]["price"]
+				size = product_lst[product]["size"]
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{text}"
+				
+				await context.bot.send_photo(chat_id=update.effective_chat.id,
+															 photo=filepath,
+															 caption=caption,
+															 parse_mode="HTML")
 		else:
-			print("no item")
+			reply_markup = InlineKeyboardMarkup(intro_buttons)
+			await context.bot.send_message(chat_id=update.effective_chat.id,
+			                               text=f"My apologies, the user @{text} does not have any products listed.\n\nWhat else can I do for you?",
+			                               reply_markup=reply_markup)
+			
 		searchSeller = False
 		return
 
