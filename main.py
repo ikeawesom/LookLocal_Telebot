@@ -99,6 +99,7 @@ for member in member_lst:
 	print("Account created on:", member_lst[member]["creation"])
 	print("\n")
 print("=" * 100)
+
 print("Product Count", len(product_lst))
 for item in product_lst:
 	print("Name:", item)
@@ -110,7 +111,6 @@ for item in product_lst:
 	print("Filepath:", product_lst[item]["filepath"])
 	print("Owner:", product_lst[item]["owner"])
 	print("\n" + "-" * 50)
-# print("Current Products", product_lst)
 
 # Get texts
 intro_txt = get_Texts("intro")[0]
@@ -163,6 +163,10 @@ intro_buttons = [
 
 selling_colour_buttons = [
  [
+  InlineKeyboardButton("White", callback_data="SELL_COLOUR_white"),
+  InlineKeyboardButton("Black", callback_data="SELL_COLOUR_black")
+ ],
+ [
   InlineKeyboardButton("Red", callback_data="SELL_COLOUR_red"),
   InlineKeyboardButton("Orange", callback_data="SELL_COLOUR_orange")
  ],
@@ -206,6 +210,10 @@ selling_buttons = [[
                    ]]
 
 explore_colour_buttons = [
+ [
+  InlineKeyboardButton("White", callback_data="EXPLORE_FILTERS_Colours_white"),
+  InlineKeyboardButton("Black", callback_data="EXPLORE_FILTERS_Colours_black")
+ ],
  [
   InlineKeyboardButton("Red", callback_data="EXPLORE_FILTERS_Colours_red"),
   InlineKeyboardButton("Orange",
@@ -285,14 +293,12 @@ explore_buttons = [
  [InlineKeyboardButton("<< Back", callback_data="BACK_start")]
 ]
 
-print()
-
 
 # ==================== HANDLERS ==================== #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 	reset_proc()
-	
+
 	global CURRENT_USER
 	# Logs bot starting
 	cur_time = datetime.now()
@@ -312,7 +318,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		intro_txt = f"Welcome back <b>{cur_user}</b>, it's {BOT_NAME} here again!\n\nWhat can I do for you today?"
 		await context.bot.send_message(chat_id=update.effective_chat.id,
 		                               text=intro_txt,
-		                               reply_markup=reply_markup,parse_mode="HTML")
+		                               reply_markup=reply_markup,
+		                               parse_mode="HTML")
 	else:
 		new_member_items = {
 		 'products': {},
@@ -384,7 +391,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			db["products"][myp_product]['desc'] = text
 			db["members"][myp_user]["products"][myp_product]['desc'] = text
 			await update.message.reply_text(
-			 f"Successfully updated description for <b>{myp_product}</b>.",parse_mode="HTML")
+			 f"Successfully updated description for <b>{myp_product}</b>.",
+			 parse_mode="HTML")
 			myp_desc = False
 		elif myp_price:
 			item_price = text
@@ -394,20 +402,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			db["products"][myp_product]['price'] = text
 			db["members"][myp_user]["products"][myp_product]['price'] = text
 			await update.message.reply_text(
-			 f"Successfully updated price for <b>{myp_product}</b>.",parse_mode="HTML")
+			 f"Successfully updated price for <b>{myp_product}</b>.", parse_mode="HTML")
 			myp_price = False
-		elif myp_colour:
-			db["products"][myp_product]['colour'] = text
-			db["members"][myp_user]["products"][myp_product]['colour'] = text
-			await update.message.reply_text(
-			 f"Successfully updated colour description for <b>{myp_product}</b>.",parse_mode="HTML")
-			myp_colour = False
-		elif myp_size:
-			db["products"][myp_product]['size'] = text
-			db["members"][myp_user]["products"][myp_product]['size'] = text
-			await update.message.reply_text(
-			 f"Successfully updated size for <b>{myp_product}</b>.",parse_mode="HTML")
-			myp_size = False
+		# elif myp_colour:
+		# 	db["products"][myp_product]['colour'] = text
+		# 	db["members"][myp_user]["products"][myp_product]['colour'] = text
+		# 	await update.message.reply_text(
+		# 	 f"Successfully updated colour description for <b>{myp_product}</b>.",
+		# 	 parse_mode="HTML")
+		# 	myp_colour = False
+		# elif myp_size:
+		# 	db["products"][myp_product]['size'] = text
+		# 	db["members"][myp_user]["products"][myp_product]['size'] = text
+		# 	await update.message.reply_text(
+		# 	 f"Successfully updated size for <b>{myp_product}</b>.", parse_mode="HTML")
+		# 	myp_size = False
 
 		myp_product = None
 		myp_user = None
@@ -418,7 +427,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	if searchSeller:
 		if text in db["members"]:
 			product_lst = db["members"][text]["products"]
-			if len(product_lst > 0):
+			if len(product_lst) > 0:
 				await update.message.reply_text(
 				 f"Found 'em! Here are the product(s) listed by user @{text}.")
 				for product in product_lst:
@@ -641,10 +650,11 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			]
 
 			reply_markup = InlineKeyboardMarkup(product_options)
-			await query.edit_message_text(f"What would you like to do with <b>{product}</b>?",parse_mode="HTML")
+			await query.edit_message_text(
+			 f"What would you like to do with <b>{product}</b>?", parse_mode="HTML")
 			await query.edit_message_reply_markup(reply_markup)
 			return
-			
+
 		# Editing options
 		selected_option = mainFilter[3]
 
@@ -656,49 +666,86 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			await context.bot.send_message(
 			 chat_id=update.effective_chat.id,
 			 text=
-			 f"Please tell me the updated description for your product: <b>{myp_product}</b>.",parse_mode="HTML")
+			 f"Please tell me the updated description for your product: <b>{myp_product}</b>.",
+			 parse_mode="HTML")
 			myp_desc = True
+			myp_price = False
+			myp_colour = False
+			myp_size = False
 		elif selected_option == "price":
 			await context.bot.send_message(
 			 chat_id=update.effective_chat.id,
 			 text=
-			 f"Please tell me the updated price for your product: <b>{myp_product}</b>.",parse_mode="HTML")
+			 f"Please tell me the updated price for your product: <b>{myp_product}</b>.",
+			 parse_mode="HTML")
 			myp_price = True
+			myp_desc = False
+			myp_colour = False
+			myp_size = False
+
 		elif selected_option == "colour":
+			reply_markup = InlineKeyboardMarkup(selling_colour_buttons)
 			await context.bot.send_message(
 			 chat_id=update.effective_chat.id,
 			 text=
-			 f"Please tell me the updated colour for your product: <b>{myp_product}</b>.",parse_mode="HTML")
+			 f"Please choose the new colour for your product: <b>{myp_product}</b>.",
+			 parse_mode="HTML",reply_markup=reply_markup)
 			myp_colour = True
+			myp_desc = False
+			myp_price = False
+			myp_size = False
+
 		elif selected_option == "size":
+			reply_markup = InlineKeyboardMarkup(selling_sizes_buttons)
 			await context.bot.send_message(
 			 chat_id=update.effective_chat.id,
 			 text=
-			 f"Please tell me the updated size for your product: <b>{myp_product}</b>.",parse_mode="HTML")
+			 f"Please choose me the updated size for your product: <b>{myp_product}</b>.",
+			 parse_mode="HTML",reply_markup=reply_markup)
 			myp_size = True
+			myp_desc = False
+			myp_price = False
+			myp_colour = False
+
 		elif selected_option == "remove":
-			delete_buttons = [[InlineKeyboardButton("YES",callback_data=f"MYPRODUCTS_{cur_user}_{product}_removeYES"),InlineKeyboardButton("NO",callback_data=f"MYPRODUCTS_{cur_user}_{product}_removeNO")]]
+			delete_buttons = [[
+			 InlineKeyboardButton(
+			  "YES", callback_data=f"MYPRODUCTS_{cur_user}_{product}_removeYES"),
+			 InlineKeyboardButton(
+			  "NO", callback_data=f"MYPRODUCTS_{cur_user}_{product}_removeNO")
+			]]
 			reply_markup = InlineKeyboardMarkup(delete_buttons)
 			await context.bot.send_message(
 			 chat_id=update.effective_chat.id,
 			 text=
-			 f"Are you sure you want to remove this listing: <b>{myp_product}</b>? This cannot be undone!",reply_markup=reply_markup,parse_mode="HTML")
+			 f"Are you sure you want to remove this listing: <b>{myp_product}</b>? This cannot be undone!",
+			 reply_markup=reply_markup,
+			 parse_mode="HTML")
 
 		# Remove listing
 		else:
-			reply_markup = InlineKeyboardMarkup(intro_buttons) 
+			reply_markup = InlineKeyboardMarkup(intro_buttons)
 			if selected_option == "removeYES":
 				try:
 					removed_item = db["products"].pop(myp_product)
 					removed_item_user = db["members"][myp_user]["products"].pop(myp_product)
 					print(f"Removed {removed_item} from DB")
 					print(f"Removed {removed_item_user} from user DB")
-					await query.edit_message_text(text=f"Your item <b>{myp_product}</b> has been removed. Is there anything else I can do for you?", reply_markup=reply_markup,parse_mode="HTML")
+					await query.edit_message_text(
+					 text=
+					 f"Your item <b>{myp_product}</b> has been removed. Is there anything else I can do for you?",
+					 reply_markup=reply_markup,
+					 parse_mode="HTML")
 				except:
-					await query.edit_message_text(text=f"Your listing <b>{myp_product}</b> has already been removed. Is there anything else I can do for you?", reply_markup=reply_markup,parse_mode="HTML")
+					await query.edit_message_text(
+					 text=
+					 f"Your listing <b>{myp_product}</b> has already been removed. Is there anything else I can do for you?",
+					 reply_markup=reply_markup,
+					 parse_mode="HTML")
 			elif selected_option == "removeNO":
-				await query.edit_message_text(text=f"Okay! I'll take you back to the start menu.", reply_markup=reply_markup)
-					
+				await query.edit_message_text(
+				 text=f"Okay! I'll take you back to the start menu.",
+				 reply_markup=reply_markup)
 
 		print(selected_option)
 
@@ -707,6 +754,51 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		exploring = False
 		global sellPic_bool, temp_product, sellCat_bool, sellSize_bool, sellColour_bool, sellPrice_bool
 
+		if myp_user != None:
+			cur_user = myp_user
+			product = myp_product
+			product_options = [
+			 [
+			  InlineKeyboardButton(
+			   "Edit Desc", callback_data=f"MYPRODUCTS_{cur_user}_{product}_desc"),
+			  InlineKeyboardButton(
+			   "Edit Price", callback_data=f"MYPRODUCTS_{cur_user}_{product}_price")
+			 ],
+			 [
+			  InlineKeyboardButton(
+			   "Edit Colour", callback_data=f"MYPRODUCTS_{cur_user}_{product}_colour"),
+			  InlineKeyboardButton(
+			   "Edit Size", callback_data=f"MYPRODUCTS_{cur_user}_{product}_size")
+			 ],
+			 [
+			  InlineKeyboardButton(
+			   "Remove Listing",
+			   callback_data=f"MYPRODUCTS_{cur_user}_{product}_remove")
+			 ]
+			]
+			reply_markup = InlineKeyboardMarkup(product_options)
+			
+			if myp_colour:
+				colour = mainQuery[2]
+				db["products"][myp_product]['colour'] = colour
+				db["members"][myp_user]["products"][myp_product]['colour'] = colour
+				myp_colour = False
+				await query.edit_message_text(
+			 f"Successfully updated colour for <b>{myp_product}</b>. Is there anything else I can do for you?", parse_mode="HTML")
+				await query.edit_message_reply_markup(reply_markup)
+				
+			elif myp_size:
+				size = mainQuery[2]
+				db["products"][myp_product]['size'] = size
+				db["members"][myp_user]["products"][myp_product]['size'] = size
+				await query.edit_message_text(
+			 f"Successfully updated size for <b>{myp_product}</b>. Is there anything else I can do for you?", parse_mode="HTML")
+				await query.edit_message_reply_markup(reply_markup)
+				myp_size = False
+			
+			myp_user = None
+			myp_product = None
+			return
 		if len(mainQuery) > 2:
 			subSell = mainQuery[1]
 			if subSell == "SIZE":
@@ -736,7 +828,7 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	elif prefix == "BACK":
 		if option == "start":
 			# Edits text and shows new keyboard markup
-			await query.edit_message_text(text=intro_txt)
+			await query.edit_message_text(text=intro_txt,parse_mode="HTML")
 			reply_markup = InlineKeyboardMarkup(intro_buttons)
 			await query.edit_message_reply_markup(reply_markup)
 
@@ -868,7 +960,6 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				desc = product_lst[product]["desc"]
 				cat = product_lst[product]["category"]
 				filepath = product_lst[product]["filepath"]
-
 				price = product_lst[product]["price"]
 				owner = product_lst[product]["owner"]
 				size = product_lst[product]["size"]
