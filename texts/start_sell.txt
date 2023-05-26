@@ -4,6 +4,8 @@ Great choice. Now let's add a description for your listing.;
 Interesting.. What category will this be?;
 Now for some tags. What colour will your product be?;
 Great, now what is the size of this clothing?;
+Okay, perfect. How would you like payment for this listing?;
+Good choice. Now, how would you like this dealed?;
 Nice! Let your customer's know what they are in for! Send me a picture of your product.;
 Excellent. Finally, how much are you selling this item for (SGD)?;
 Congrats! Your item is now listed on LookLocal stores by;

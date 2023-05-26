@@ -45,7 +45,7 @@ def reset_edits():
 
 def reset_filters():
 	global filtersSet, writingPrices
-	filtersSet = {"colours": [], "sizes": [], "ranges": []}
+	filtersSet = {"colours": [], "sizes": [], "ranges": [], "payments":[], "deliveries":[]}
 	writingPrices = False
 
 
@@ -107,6 +107,8 @@ for item in product_lst:
 	print("Category:", product_lst[item]['category'])
 	print("Colour:", product_lst[item]["colour"])
 	print("Size:", product_lst[item]["size"])
+	print("Payments:",product_lst[item]["payment"])
+	print("Deliveries:",product_lst[item]["delivery"])
 	print("Price:", product_lst[item]["price"])
 	print("Filepath:", product_lst[item]["filepath"])
 	print("Owner:", product_lst[item]["owner"])
@@ -130,10 +132,15 @@ sellColour = get_Texts("start_sell")[4]
 sellColour_bool = False
 sellSize = get_Texts("start_sell")[5]
 sellSize_bool = False
-sellPic = get_Texts("start_sell")[6]
+sellPayment = get_Texts("start_sell")[6]
+sellPayment_bool = False
+sellPayment_lst = []
+sellDelivery = get_Texts("start_sell")[7]
+sellDelivery_bool = False
+sellPic = get_Texts("start_sell")[8]
 sellPrice_bool = False
-sellPrice = get_Texts("start_sell")[7]
-sellEnd = get_Texts("start_sell")[8]
+sellPrice = get_Texts("start_sell")[9]
+sellEnd = get_Texts("start_sell")[10]
 
 # Exploring products
 searchSeller = False
@@ -141,7 +148,7 @@ exploring = False
 current_cat = None
 
 # Filters
-filtersSet = {"colours": [], "sizes": [], "ranges": []}
+filtersSet = {"colours": [], "sizes": [], "ranges": [], "payments":[], "deliveries":[]}
 writingPrices = False
 
 # Edit Products
@@ -187,6 +194,23 @@ selling_sizes_buttons = [
  [InlineKeyboardButton("L - 17 to 21 years", callback_data="SELL_SIZE_L")],
  [InlineKeyboardButton("XL - above 21 years", callback_data="SELL_SIZE_XL")]
 ]
+
+selling_payment_buttons = [
+ [
+  InlineKeyboardButton("PayNow", callback_data="SELL_PAYMENT_PayNow"),
+  InlineKeyboardButton("Bank Transfer",
+                       callback_data="SELL_PAYMENT_Bank-Transfer")
+ ],
+ [
+  InlineKeyboardButton("Cash", callback_data="SELL_PAYMENT_Cash"),
+  InlineKeyboardButton("Others", callback_data="SELL_PAYMENT_Others")
+ ], [InlineKeyboardButton("Continue", callback_data="SELL_PAYMENT_continue")]
+]
+
+selling_delivery_buttons = [[
+ InlineKeyboardButton("Meet Up", callback_data="SELL_DELIVERY_meetup"),
+ InlineKeyboardButton("Delivery", callback_data="SELL_DELIVERY_delivery")
+], [InlineKeyboardButton("Both", callback_data="SELL_DELIVERY_both")]]
 
 selling_buttons = [[
  InlineKeyboardButton("Male Tops 👕", callback_data="SELL_maleTops"),
@@ -258,15 +282,33 @@ explore_sizes_buttons = [
  ]
 ]
 
+explore_payment_buttons = [
+ [
+  InlineKeyboardButton("PayNow", callback_data="EXPLORE_FILTERS_Payments_PayNow"),
+  InlineKeyboardButton("Bank Transfer",
+                       callback_data="EXPLORE_FILTERS_Payments_Bank-Transfer")
+ ],
+ [
+  InlineKeyboardButton("Cash", callback_data="EXPLORE_FILTERS_Payments_Cash"),
+  InlineKeyboardButton("Others", callback_data="EXPLORE_FILTERS_Payments_Others")
+ ], [InlineKeyboardButton("Continue", callback_data="EXPLORE_FILTERS_Payments_continue")]
+]
+
+explore_delivery_buttons = [[
+ InlineKeyboardButton("Meet Up", callback_data="EXPLORE_FILTERS_Delivery_meetup"),
+ InlineKeyboardButton("Delivery", callback_data="EXPLORE_FILTERS_Delivery_delivery")
+], [InlineKeyboardButton("Both", callback_data="EXPLORE_FILTERS_Delivery_both")]]
+
 filter_buttons = [[
  InlineKeyboardButton("Colours", callback_data="EXPLORE_FILTERS_Colours"),
  InlineKeyboardButton("Sizes", callback_data="EXPLORE_FILTERS_Sizes"),
  InlineKeyboardButton("Price Range", callback_data="EXPLORE_FILTERS_Prices")
 ],
-                  [
-                   InlineKeyboardButton("Start Filtering",
-                                        callback_data="EXPLORE_FILTERS_Finish")
-                  ]]
+				  [InlineKeyboardButton("Payment Methods",callback_data="EXPLORE_FILTERS_Payments"),InlineKeyboardButton("Delivery Options",callback_data="EXPLORE_FILTERS_Delivery")],
+[
+InlineKeyboardButton("Start Filtering >>",
+					callback_data="EXPLORE_FILTERS_Finish")
+]]
 
 explore_buttons = [
  # [
@@ -334,7 +376,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		await context.bot.send_message(chat_id=update.effective_chat.id,
 		                               text=f"Hi there {cur_user}! 👋\n\n" +
 		                               intro_txt,
-		                               reply_markup=reply_markup)
+		                               reply_markup=reply_markup,parse_mode="HTML")
 
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -364,16 +406,15 @@ async def setFilters(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	colours = str(", ".join(filtersSet["colours"]))
 	sizes = str(", ".join(filtersSet["sizes"]))
 	prices = ", ".join(filtersSet["ranges"])
+	payments = ", ".join(filtersSet["payments"])
+	deliveries = ", ".join(filtersSet["deliveries"])
 	await context.bot.send_message(
 	 chat_id=update.effective_chat.id,
-	 text=
-	 f"Current filters:\nColours: {colours}\nSizes: {sizes}\n{prices}\nSelect some filters to choose from.",
-	 reply_markup=reply_markup)
+	 text=f"<b>Current Filters</b>\nColours: {colours}\nSizes: {sizes}\nRanges:{prices}\nPayment Methods:{payments}\nDelivery Methods:{deliveries}\n\nSelect some filters to choose from.", parse_mode="HTML",reply_markup=reply_markup)
 
 
 async def clearFilters(update: Update, context: ContextTypes.DEFAULT_TYPE):
-	global filtersSet
-	filtersSet = {"colours": [], "sizes": [], "ranges": []}
+	reset_filters()
 	await context.bot.send_message(
 	 chat_id=update.effective_chat.id,
 	 text="Your search filters have now been cleared.")
@@ -404,19 +445,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			await update.message.reply_text(
 			 f"Successfully updated price for <b>{myp_product}</b>.", parse_mode="HTML")
 			myp_price = False
-		# elif myp_colour:
-		# 	db["products"][myp_product]['colour'] = text
-		# 	db["members"][myp_user]["products"][myp_product]['colour'] = text
-		# 	await update.message.reply_text(
-		# 	 f"Successfully updated colour description for <b>{myp_product}</b>.",
-		# 	 parse_mode="HTML")
-		# 	myp_colour = False
-		# elif myp_size:
-		# 	db["products"][myp_product]['size'] = text
-		# 	db["members"][myp_user]["products"][myp_product]['size'] = text
-		# 	await update.message.reply_text(
-		# 	 f"Successfully updated size for <b>{myp_product}</b>.", parse_mode="HTML")
-		# 	myp_size = False
 
 		myp_product = None
 		myp_user = None
@@ -436,7 +464,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 					filepath = product_lst[product]["filepath"]
 					price = product_lst[product]["price"]
 					size = product_lst[product]["size"]
-					caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{text}"
+					payment = product_lst[product]['payment']
+					delivery = product_lst[product]['delivery']
+					caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nPayment Methods: {payment}\nGetting This: {delivery}\n\nListed by @{owner}"
 
 					await context.bot.send_photo(chat_id=update.effective_chat.id,
 					                             photo=filepath,
@@ -462,12 +492,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				colours = str(", ".join(filtersSet["colours"]))
 				sizes = str(", ".join(filtersSet["sizes"]))
 				prices = ", ".join(filtersSet["ranges"])
+				payments = ", ".join(filtersSet["payments"])
+				deliveries = ", ".join(filtersSet["deliveries"])
+				
 				reply_markup = InlineKeyboardMarkup(filter_buttons)
-				await context.bot.send_message(
-				 chat_id=update.effective_chat.id,
-				 text=
-				 f"Current filters:\nColours: {colours}\nSizes: {sizes}\n{prices}\nSelect some filters to choose from.",
-				 reply_markup=reply_markup)
+
+				await update.message.reply_text(f"<b>Current Filters</b>\nColours: {colours}\nSizes: {sizes}\nRanges:{prices}\nPayment Methods:{payments}\nDelivery Methods:{deliveries}\n\nSelect some filters to choose from.", parse_mode="HTML",reply_markup=reply_markup)
 			writingPrices = False
 
 		else:
@@ -534,11 +564,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		 os.path.join(user_path, f"{item_name}.jpg"))
 
 		# Users DB
+		payments = ', '.join(temp_product["payment_method"])
+		
+		print(payments)
 		details = {
 		 'desc': temp_product["desc"],
 		 'colour': temp_product['colour'],
 		 'size': temp_product['size'],
 		 'price': temp_product["price"],
+		 'payment': payments,
+		 'delivery': temp_product["delivery"],
 		 'filepath': os.path.join(user_path, f"{item_name}.jpg")
 		}
 		db["members"][str(cur_user)]["products"][item_name] = details
@@ -549,6 +584,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		 'category': temp_product["category"],
 		 'colour': temp_product['colour'],
 		 'size': temp_product['size'],
+		 'payment': payments,
+		 'delivery': temp_product["delivery"],
 		 'price': temp_product["price"],
 		 'filepath': os.path.join(user_path, f"{item_name}.jpg")
 		}
@@ -689,7 +726,8 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			 chat_id=update.effective_chat.id,
 			 text=
 			 f"Please choose the new colour for your product: <b>{myp_product}</b>.",
-			 parse_mode="HTML",reply_markup=reply_markup)
+			 parse_mode="HTML",
+			 reply_markup=reply_markup)
 			myp_colour = True
 			myp_desc = False
 			myp_price = False
@@ -701,7 +739,8 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			 chat_id=update.effective_chat.id,
 			 text=
 			 f"Please choose me the updated size for your product: <b>{myp_product}</b>.",
-			 parse_mode="HTML",reply_markup=reply_markup)
+			 parse_mode="HTML",
+			 reply_markup=reply_markup)
 			myp_size = True
 			myp_desc = False
 			myp_price = False
@@ -752,7 +791,7 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	# To add category for product listing
 	elif prefix == "SELL":
 		exploring = False
-		global sellPic_bool, temp_product, sellCat_bool, sellSize_bool, sellColour_bool, sellPrice_bool
+		global sellPic_bool, temp_product, sellCat_bool, sellSize_bool, sellColour_bool, sellPrice_bool, sellPayment_bool, selling_payment_buttons, sellPayment_lst, sellDelivery_bool
 
 		if myp_user != None:
 			cur_user = myp_user
@@ -777,36 +816,41 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 			 ]
 			]
 			reply_markup = InlineKeyboardMarkup(product_options)
-			
+
 			if myp_colour:
 				colour = mainQuery[2]
 				db["products"][myp_product]['colour'] = colour
 				db["members"][myp_user]["products"][myp_product]['colour'] = colour
 				myp_colour = False
 				await query.edit_message_text(
-			 f"Successfully updated colour for <b>{myp_product}</b>. Is there anything else I can do for you?", parse_mode="HTML")
+				 f"Successfully updated colour for <b>{myp_product}</b>. Is there anything else I can do for you?",
+				 parse_mode="HTML")
 				await query.edit_message_reply_markup(reply_markup)
-				
+
 			elif myp_size:
 				size = mainQuery[2]
 				db["products"][myp_product]['size'] = size
 				db["members"][myp_user]["products"][myp_product]['size'] = size
 				await query.edit_message_text(
-			 f"Successfully updated size for <b>{myp_product}</b>. Is there anything else I can do for you?", parse_mode="HTML")
+				 f"Successfully updated size for <b>{myp_product}</b>. Is there anything else I can do for you?",
+				 parse_mode="HTML")
 				await query.edit_message_reply_markup(reply_markup)
 				myp_size = False
-			
+
 			myp_user = None
 			myp_product = None
 			return
 		if len(mainQuery) > 2:
+
 			subSell = mainQuery[1]
 			if subSell == "SIZE":
 				temp_product["size"] = mainQuery[2]
 				sellSize_bool = False
-				sellPic_bool = True
+				sellPayment_bool = True
+				reply_markup = InlineKeyboardMarkup(selling_payment_buttons)
 				await context.bot.send_message(chat_id=update.effective_chat.id,
-				                               text=sellPic)
+				                               text=sellPayment,
+				                               reply_markup=reply_markup)
 			elif subSell == "COLOUR":
 				temp_product["colour"] = mainQuery[2]
 				sellColour_bool = False
@@ -815,7 +859,51 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				await context.bot.send_message(chat_id=update.effective_chat.id,
 				                               text=sellSize,
 				                               reply_markup=reply_markup)
+
+			elif subSell == "PAYMENT":
+				option = mainQuery[2]
+				if option == "continue":
+					if len(sellPayment_lst) == 0:
+						sellPayment_lst = ["No Preference"]
+					temp_product["payment_method"] = sellPayment_lst
+					sellPayment_lst = []
+					reply_markup = InlineKeyboardMarkup(selling_delivery_buttons)
+					await context.bot.send_message(chat_id=update.effective_chat.id,
+					                               text=sellDelivery,
+					                               reply_markup=reply_markup)
+					sellPayment_bool = False
+					sellDelivery_bool = True
+					return
+
+				if option == "Bank-Transfer":
+					option = "Bank Transfer"
+					
+				if not (option in sellPayment_lst):
+					sellPayment_lst.append(option)
+
+				try:
+					await query.edit_message_text(
+					 sellPayment + f"\nYou have selected: {', '.join(sellPayment_lst)} ",
+					 reply_markup=InlineKeyboardMarkup(selling_payment_buttons))
+				except:
+					print(f"{cur_user} spamming...")
+
+			elif subSell == "DELIVERY":
+				option = mainQuery[2]
+				if option == "both":
+					option = "Meet Ups & Delivery"
+				elif option == "meetup":
+					option = "Meet Ups"
+				elif option == "delivery":
+					option = "Delivery"
+					
+				temp_product["delivery"] = option
+				await context.bot.send_message(chat_id=update.effective_chat.id,
+				                               text=sellPic)
+				sellDelivery_bool = False
+				sellPic_bool = True
 			return
+
 		temp_product["category"] = option
 		sellCat_bool = False
 		sellColour_bool = True
@@ -828,7 +916,7 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 	elif prefix == "BACK":
 		if option == "start":
 			# Edits text and shows new keyboard markup
-			await query.edit_message_text(text=intro_txt,parse_mode="HTML")
+			await query.edit_message_text(text=intro_txt, parse_mode="HTML")
 			reply_markup = InlineKeyboardMarkup(intro_buttons)
 			await query.edit_message_reply_markup(reply_markup)
 
@@ -842,17 +930,26 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 		async def filters_helper(mainFilter, query, category):
 			if len(mainFilter) > 3:
 				subFilter = mainFilter[3]
-				filtersSet[category].append(subFilter)
+				if not (subFilter in filtersSet[category]):
+					if subFilter == "meetup":
+						subFilter = "Meet Ups"
+					elif subFilter == "both":
+						subFilter = "Meet Ups & Delivery"
+					elif subFilter == "delivery":
+						subFilter = "Delivery"
+					filtersSet[category].append(subFilter)
 
 				colours = str(", ".join(filtersSet["colours"]))
 				sizes = str(", ".join(filtersSet["sizes"]))
 				prices = ", ".join(filtersSet["ranges"])
+				payments = ", ".join(filtersSet["payments"])
+				deliveries = ", ".join(filtersSet["deliveries"])
+				
 				reply_markup = InlineKeyboardMarkup(filter_buttons)
 
 				await query.edit_message_text(
 				 text=
-				 f"Current filters:\nColours: {colours}\nSizes: {sizes}\n{prices}\nSelect some filters to choose from."
-				)
+				 f"<b>Current Filters</b>\nColours: {colours}\nSizes: {sizes}\nRanges: {prices}\nPayment Methods: {payments}\nDelivery Methods: {deliveries}\n\nSelect some filters to choose from.",parse_mode="HTML")
 				await query.edit_message_reply_markup(reply_markup)
 				return
 
@@ -888,46 +985,54 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				 parse_mode="HTML")
 				writingPrices = True
 
-			elif filterCat == "Finish":
-				print("filters: ", filtersSet)
-				# if current_cat == "all":
-				count = 0
+			elif filterCat == "Payments":
+				print(mainFilter)
+				if len(mainFilter) > 3:
+					print("here")
+					await filters_helper(mainFilter, query, "payments")
+					return
 
+				await query.edit_message_text(text="Select a payment method suitable for you.")
+				reply_markup = InlineKeyboardMarkup(explore_payment_buttons)
+				await query.edit_message_reply_markup(reply_markup)
+
+			elif filterCat == "Delivery":
+				if len(mainFilter) > 3:
+					await filters_helper(mainFilter, query, "deliveries")
+					return
+
+				await query.edit_message_text(text="Select your ideal delivery method.")
+				reply_markup = InlineKeyboardMarkup(explore_delivery_buttons)
+				await query.edit_message_reply_markup(reply_markup)
+
+			elif filterCat == "Finish":
+				selected_prods = []
 				for product in product_lst:
-					print(product)
-					print(current_cat)
+
 					if current_cat != "all":
 						if current_cat != product_lst[product]["category"]:
 							continue
-
+					print(product)
 					name = product
-					desc = product_lst[product]["desc"]
-					filepath = product_lst[product]["filepath"]
 					price = product_lst[product]["price"]
-					owner = product_lst[product]["owner"]
 					size = product_lst[product]["size"]
-					caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+					payment = product_lst[product]["payment"]
+					delivery = product_lst[product]["delivery"]
 
 					if len(filtersSet['colours']) > 0:
 						for colourFilter in filtersSet['colours']:
 							colour = product_lst[product]["colour"]
 							if colour == colourFilter:
-								count += 1
-								await context.bot.send_photo(chat_id=update.effective_chat.id,
-								                             photo=filepath,
-								                             caption=caption,
-								                             parse_mode="HTML")
+								if not (name in selected_prods):
+									selected_prods.append(name)
 								continue
 
 					if len(filtersSet['sizes']) > 0:
 						for sizeFilter in filtersSet['sizes']:
 							size = product_lst[product]["size"]
 							if size == sizeFilter:
-								count += 1
-								await context.bot.send_photo(chat_id=update.effective_chat.id,
-								                             photo=filepath,
-								                             caption=caption,
-								                             parse_mode="HTML")
+								if not (name in selected_prods):
+									selected_prods.append(name)
 								continue
 
 					if len(filtersSet['ranges']) > 0:
@@ -936,19 +1041,50 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 							maximum = int(rangeFilter.split("-")[1].strip())
 
 							if int(price) >= minimum and int(price) <= maximum:
-								count += 1
-								await context.bot.send_photo(chat_id=update.effective_chat.id,
-								                             photo=filepath,
-								                             caption=caption,
-								                             parse_mode="HTML")
+								if not (name in selected_prods):
+									selected_prods.append(name)
 								continue
 
-				if count == 0:
+					if len(filtersSet['payments']) > 0:
+						for paymentFilter in filtersSet['payments']:
+							payment = product_lst[product]["payment"]
+							if payment == paymentFilter:
+								if not (name in selected_prods):
+									selected_prods.append(name)
+								continue
+
+					if len(filtersSet['deliveries']) > 0:
+						for deliveryFilter in filtersSet['deliveries']:
+							delivery = product_lst[product]["delivery"]
+							if delivery == deliveryFilter:
+								if not (name in selected_prods):
+									selected_prods.append(name)
+								continue
+								
+					print(selected_prods)
+					
+				if len(selected_prods) == 0:
 					await context.bot.send_message(
 					 chat_id=update.effective_chat.id,
 					 text=
-					 "Oops, there are currently no products listed! Apologies for the inconvenience."
+					 "Oops, there are currently no products listed with your filters! Apologies for the inconvenience."
 					)
+					return
+
+				for product in selected_prods:
+					name = product
+					desc = product_lst[product]["desc"]
+					filepath = product_lst[product]["filepath"]
+					price = product_lst[product]["price"]
+					owner = product_lst[product]["owner"]
+					size = product_lst[product]["size"]
+					payment = product_lst[product]['payment']
+					delivery = product_lst[product]['delivery']
+					caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nPayment Methods: {payment}\nGetting This: {delivery}\n\nListed by @{owner}"
+					await context.bot.send_photo(chat_id=update.effective_chat.id,
+					                             photo=filepath,
+					                             caption=caption,
+					                             parse_mode="HTML")
 
 		# Normal exploring
 		elif option == "all":
@@ -963,7 +1099,9 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				price = product_lst[product]["price"]
 				owner = product_lst[product]["owner"]
 				size = product_lst[product]["size"]
-				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+				payment = product_lst[product]['payment']
+				delivery = product_lst[product]['delivery']
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nPayment Methods: {payment}\nGetting This: {delivery}\n\nListed by @{owner}"
 				await context.bot.send_photo(chat_id=update.effective_chat.id,
 				                             photo=filepath,
 				                             caption=caption,
@@ -1003,7 +1141,9 @@ async def queryHandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 				price = product_lst[product]["price"]
 				owner = product_lst[product]["owner"]
 
-				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nListed by @{owner}"
+				payment = product_lst[product]['payment']
+				delivery = product_lst[product]['delivery']
+				caption = f"<b>{name}</b>\n\n{desc}\n\n---\n<b>Size: </b>{size}\n<b>Selling Price:</b> SGD{price}\n\nPayment Methods: {payment}\nGetting This: {delivery}\n\nListed by @{owner}"
 				await context.bot.send_photo(chat_id=update.effective_chat.id,
 				                             photo=filepath,
 				                             caption=caption,
